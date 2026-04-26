@@ -24,6 +24,7 @@ from xml.etree import ElementTree as ET
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ADDONS_XML = os.path.join(REPO_ROOT, 'addons.xml')
 ADDONS_MD5 = os.path.join(REPO_ROOT, 'addons.xml.md5')
+INDEX_HTML = os.path.join(REPO_ROOT, 'index.html')
 
 # Directories to skip when scanning for addons
 SKIP_DIRS = {'.github', 'tools', '.git'}
@@ -71,6 +72,7 @@ def indent(elem, level=0):
 
 def main():
     addon_elements = []
+    zip_links = []  # (subdir/filename) paths for index.html
 
     entries = sorted(os.listdir(REPO_ROOT))
     for name in entries:
@@ -85,9 +87,11 @@ def main():
 
         if zips:
             # Use the last zip (highest version when named addon_id-x.y.z.zip)
-            zip_path = os.path.join(full_path, zips[-1])
-            print(f'  {name}: reading from {zips[-1]}')
+            latest = zips[-1]
+            zip_path = os.path.join(full_path, latest)
+            print(f'  {name}: reading from {latest}')
             elem = get_addon_element_from_zip(zip_path)
+            zip_links.append(f'{name}/{latest}')
         else:
             # No zip — read addon.xml directly (e.g. repository addon)
             elem = get_addon_element_from_dir(full_path)
@@ -118,6 +122,13 @@ def main():
     with open(ADDONS_MD5, 'w') as f:
         f.write(md5)
     print(f'Wrote {ADDONS_MD5}  ({md5})')
+
+    # Build index.html — Kodi parses <a href="*.zip"> links to browse the source
+    links_html = '\n'.join(f'<a href="{p}">{p}</a>' for p in zip_links)
+    html = f'<!DOCTYPE html>\n{links_html}\n'
+    with open(INDEX_HTML, 'w') as f:
+        f.write(html)
+    print(f'Wrote {INDEX_HTML}  ({len(zip_links)} zip(s)')
 
 
 if __name__ == '__main__':
